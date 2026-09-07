@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCamera } from '../hooks/useCamera';
-import { useAudioEngine } from '../hooks/useAudioEngine';
+import { useInterviewFSM } from '../hooks/useInterviewFSM';
 import { InterviewHeader } from '../components/interview/InterviewHeader';
 import { InterviewerAvatar } from '../components/interview/InterviewerAvatar';
 import { QuestionPanel } from '../components/interview/QuestionPanel';
@@ -14,16 +14,16 @@ export const InterviewShellPage: React.FC = () => {
   const navigate = useNavigate();
 
   const camera = useCamera();
-  const audioEngine = useAudioEngine();
-  const [isPreflightVerified, setIsPreflightVerified] = useState<boolean>(false);
-
+  
   // Retrieve validated session metadata
   const sessionMetaRaw = token ? sessionStorage.getItem(`session_meta_${token}`) : null;
   const sessionMeta = sessionMetaRaw ? JSON.parse(sessionMetaRaw) : null;
 
   const candidateName = sessionMeta?.candidateName || 'Alex Chen';
   const templateTitle = sessionMeta?.template?.title || 'Technical Placement Interview';
-  const durationMinutes = sessionMeta?.template?.durationMinutes || 30;
+
+  const fsm = useInterviewFSM('sess_default', candidateName);
+  const [isPreflightVerified, setIsPreflightVerified] = useState<boolean>(false);
 
   useEffect(() => {
     if (!token) {
@@ -44,13 +44,8 @@ export const InterviewShellPage: React.FC = () => {
 
   const handleExitSession = () => {
     camera.stopCamera();
-    audioEngine.stopListening();
-    audioEngine.stopSpeaking();
+    fsm.resetInterview();
     navigate('/');
-  };
-
-  const handleTestTTS = () => {
-    audioEngine.speakText("Hello " + candidateName + ". I am your AI interviewer. Your speech-to-text and text-to-speech audio pipeline is working successfully.");
   };
 
   if (!isPreflightVerified) {
@@ -59,10 +54,10 @@ export const InterviewShellPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col font-sans">
-      {/* Header Bar */}
+      {/* Header Bar with Countdown Timer */}
       <InterviewHeader
         title={templateTitle}
-        durationMinutes={durationMinutes}
+        remainingSeconds={fsm.context.remainingSeconds}
         candidateName={candidateName}
       />
 
@@ -70,27 +65,29 @@ export const InterviewShellPage: React.FC = () => {
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: AI Avatar & Candidate Preview */}
         <div className="lg:col-span-4 flex flex-col space-y-6">
-          <InterviewerAvatar isSpeaking={audioEngine.status === 'SPEAKING'} />
+          <InterviewerAvatar
+            isSpeaking={fsm.state === 'INTRO' || fsm.state === 'ASKING' || fsm.state === 'WRAPUP'}
+          />
 
           <div className="flex-1 flex flex-col items-center">
             <CandidateCameraPreview stream={camera.stream} candidateName={candidateName} />
           </div>
         </div>
 
-        {/* Right Column: Interactive Question Panel Shell with Audio Engine */}
+        {/* Right Column: Deterministic Question Panel Controlled by FSM */}
         <div className="lg:col-span-8 flex flex-col">
           <QuestionPanel
-            questionNumber={1}
-            totalQuestions={5}
-            questionText="Welcome to the AI Visual Interviewer workspace. Use the controls below to test microphone audio capture (STT) and AI voice playback (TTS)."
-            audioStatus={audioEngine.status}
-            transcript={audioEngine.transcript}
-            volumeLevel={audioEngine.volumeLevel}
-            errorMessage={audioEngine.errorMessage}
-            onStartListening={audioEngine.startListening}
-            onStopListening={audioEngine.stopListening}
-            onTestTTS={handleTestTTS}
-            onStopTTS={audioEngine.stopSpeaking}
+            fsmState={fsm.state}
+            currentQuestion={fsm.context.currentQuestion}
+            questionNumber={fsm.context.currentQuestionIndex}
+            totalQuestions={fsm.context.config.maxQuestions}
+            audioStatus={fsm.audioEngine.status}
+            transcript={fsm.audioEngine.transcript}
+            volumeLevel={fsm.audioEngine.volumeLevel}
+            errorMessage={fsm.audioEngine.errorMessage || fsm.context.lastError}
+            onStartInterview={() => fsm.startInterview()}
+            onFinishInterview={fsm.finishInterview}
+            onStopListening={fsm.audioEngine.stopListening}
           />
         </div>
       </main>
@@ -99,7 +96,9 @@ export const InterviewShellPage: React.FC = () => {
       <footer className="bg-slate-950 border-t border-slate-800 px-6 py-3 flex items-center justify-between text-xs text-slate-400">
         <div className="flex items-center space-x-2">
           <AlertCircle className="w-4 h-4 text-brand-400" />
-          <span>Phase 3 Audio Engine Active • STT / TTS Pipeline Verified.</span>
+          <span>
+            Phase 4 Deterministic FSM Active • Current State: [{fsm.state}]
+          </span>
         </div>
 
         <Button size="sm" variant="outline" onClick={handleExitSession}>

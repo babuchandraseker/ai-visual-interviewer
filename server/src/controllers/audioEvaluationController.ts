@@ -28,13 +28,17 @@ export const evaluateAudioTranscript = async (
     }
 
     let session: any = null;
-    if (!sessionId.startsWith('sess_sample_')) {
+    if (!sessionId.startsWith('sess_sample_') && !sessionId.startsWith('sess_default')) {
+      let isDbError = false;
       try {
         session = await prisma.interviewSession.findUnique({
           where: { id: sessionId },
         });
       } catch (dbErr) {
-        // Fallback for sample/offline dev database
+        isDbError = true;
+      }
+      if (!session && !isDbError) {
+        throw ApiError.notFound('Interview session not found');
       }
     }
 

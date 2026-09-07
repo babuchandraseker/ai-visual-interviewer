@@ -51,8 +51,8 @@ export const CameraCheck: React.FC<CameraCheckProps> = ({
           autoPlay
           playsInline
           muted
-          className={`w-full h-full object-cover transform -scale-x-100 ${
-            status === 'READY' ? 'block' : 'hidden'
+          className={`w-full h-full object-cover transform -scale-x-100 transition-opacity duration-300 ${
+            status === 'READY' ? 'opacity-100' : 'opacity-0 absolute inset-0 pointer-events-none'
           }`}
         />
 

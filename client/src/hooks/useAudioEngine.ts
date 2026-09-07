@@ -24,6 +24,8 @@ export const useAudioEngine = (configOptions: Partial<AudioConfig> = {}): UseAud
 
   const captureEngineRef = useRef<SpeechCaptureEngine | null>(null);
   const playbackEngineRef = useRef<AudioPlaybackEngine | null>(null);
+  const webSpeechRef = useRef<any>(null);
+  const liveTranscriptRef = useRef<string>('');
 
   const stopSpeaking = useCallback(() => {
     if (playbackEngineRef.current) {
@@ -34,6 +36,38 @@ export const useAudioEngine = (configOptions: Partial<AudioConfig> = {}): UseAud
     }
   }, [status]);
 
+  const startWebSpeech = useCallback(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        recognition.onresult = (event: any) => {
+          let accumulated = '';
+          for (let i = 0; i < event.results.length; i++) {
+            accumulated += event.results[i][0].transcript + ' ';
+          }
+          liveTranscriptRef.current = accumulated.trim();
+        };
+
+        recognition.start();
+        webSpeechRef.current = recognition;
+      } catch (e) {}
+    }
+  }, []);
+
+  const stopWebSpeech = useCallback(() => {
+    if (webSpeechRef.current) {
+      try {
+        webSpeechRef.current.stop();
+      } catch (e) {}
+      webSpeechRef.current = null;
+    }
+  }, []);
+
   const processTranscription = useCallback(async (audioBlob: Blob, durationMs: number) => {
     if (audioBlob.size === 0) {
       setStatus('READY');
@@ -43,8 +77,15 @@ export const useAudioEngine = (configOptions: Partial<AudioConfig> = {}): UseAud
     setStatus('TRANSCRIBING');
     setErrorMessage(null);
 
+    const clientCapturedTranscript = liveTranscriptRef.current.trim();
+    stopWebSpeech();
+
     try {
-      const sttResponse = await transcribeAudio(audioBlob);
+      const sttResponse = await transcribeAudio(
+        audioBlob,
+        undefined,
+        clientCapturedTranscript || undefined
+      );
 
       setTranscript({
         transcript: sttResponse.transcript,
@@ -59,13 +100,16 @@ export const useAudioEngine = (configOptions: Partial<AudioConfig> = {}): UseAud
       setStatus('ERROR');
       setErrorMessage(err.message || 'Speech transcription failed');
     }
-  }, []);
+  }, [stopWebSpeech]);
 
   const startListening = useCallback(async () => {
     stopSpeaking(); // Cancel AI speech if active
     setStatus('INITIALIZING');
     setErrorMessage(null);
     setVolumeLevel(0);
+    liveTranscriptRef.current = '';
+
+    startWebSpeech();
 
     if (!captureEngineRef.current) {
       captureEngineRef.current = new SpeechCaptureEngine(
@@ -87,13 +131,14 @@ export const useAudioEngine = (configOptions: Partial<AudioConfig> = {}): UseAud
 
     await captureEngineRef.current.start();
     setStatus('LISTENING');
-  }, [stopSpeaking, processTranscription, configOptions]);
+  }, [stopSpeaking, processTranscription, configOptions, startWebSpeech]);
 
   const stopListening = useCallback(() => {
+    stopWebSpeech();
     if (captureEngineRef.current) {
       captureEngineRef.current.stop();
     }
-  }, []);
+  }, [stopWebSpeech]);
 
   const speakText = useCallback(async (text: string) => {
     if (!text || text.trim() === '') return;

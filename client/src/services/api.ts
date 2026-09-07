@@ -52,7 +52,11 @@ export const validateInterviewToken = async (token: string): Promise<CandidateIn
   }
 };
 
-export const transcribeAudio = async (blob: Blob, mimeType?: string): Promise<STTResponse> => {
+export const transcribeAudio = async (
+  blob: Blob,
+  mimeType?: string,
+  customTranscript?: string
+): Promise<STTResponse> => {
   try {
     // Convert Blob to Base64 string for REST payload transmission
     const arrayBuffer = await blob.arrayBuffer();
@@ -71,6 +75,7 @@ export const transcribeAudio = async (blob: Blob, mimeType?: string): Promise<ST
       body: JSON.stringify({
         audioBase64,
         mimeType: mimeType || blob.type || 'audio/webm',
+        customTranscript,
       }),
     });
 

@@ -1,6 +1,7 @@
 export interface STTTranscribeOptions {
   mimeType?: string;
   language?: string;
+  customTranscript?: string;
 }
 
 export interface STTResult {

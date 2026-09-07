@@ -14,22 +14,25 @@ export const useCamera = (): UseCameraReturn => {
   const [status, setStatus] = useState<CameraStatus>('CHECKING');
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
   const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const stopCamera = useCallback(() => {
-    if (stream) {
-      const tracks = stream.getTracks ? stream.getTracks() : [];
+    if (streamRef.current) {
+      const tracks = streamRef.current.getTracks ? streamRef.current.getTracks() : [];
       if (Array.isArray(tracks)) {
         tracks.forEach((track) => {
           track.stop();
         });
       }
-      setStream(null);
+      streamRef.current = null;
     }
+    setStream(null);
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-  }, [stream]);
+  }, []);
 
   const startCamera = useCallback(async () => {
     setStatus('CHECKING');
@@ -50,11 +53,25 @@ export const useCamera = (): UseCameraReturn => {
         },
       });
 
+      // Track end listener for disconnect detection
+      const videoTracks = mediaStream.getVideoTracks ? mediaStream.getVideoTracks() : (mediaStream.getTracks ? mediaStream.getTracks() : []);
+      const videoTrack = videoTracks[0];
+      if (videoTrack) {
+        videoTrack.onended = () => {
+          setStatus('NOT_AVAILABLE');
+          setErrorMessage('Camera disconnected.');
+        };
+      }
+
+      streamRef.current = mediaStream;
       setStream(mediaStream);
       setStatus('READY');
 
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        videoRef.current.muted = true;
+        videoRef.current.playsInline = true;
+        videoRef.current.play().catch(() => {});
       }
     } catch (err: any) {
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
@@ -73,7 +90,7 @@ export const useCamera = (): UseCameraReturn => {
     }
   }, []);
 
-  // Cleanup on unmount
+  // Cleanup only on component unmount
   useEffect(() => {
     return () => {
       stopCamera();

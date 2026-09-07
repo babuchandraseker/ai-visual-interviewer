@@ -79,7 +79,7 @@ export const useInterviewFSM = (
         break;
       }
       case 'PROCESS_EVALUATION_PLACEHOLDER': {
-        const rawTranscript = audioEngine.transcript?.transcript || '';
+        const rawTranscript = action.transcript || currentCtx.lastTranscript || audioEngine.transcript?.transcript || '';
         const durationSec = Math.round((audioEngine.transcript?.durationMs || 0) / 1000);
         evaluateSessionTranscript(currentCtx.sessionId, {
           skillTag: currentCtx.currentQuestion?.skill || 'General',

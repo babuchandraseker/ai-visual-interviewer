@@ -6,7 +6,7 @@ import { logger } from '../utils/logger';
 
 export const handleTranscribe = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { audioBase64, mimeType } = req.body;
+    const { audioBase64, mimeType, customTranscript } = req.body;
 
     if (!audioBase64 || typeof audioBase64 !== 'string') {
       throw ApiError.badRequest('audioBase64 string is required');
@@ -25,7 +25,7 @@ export const handleTranscribe = async (req: Request, res: Response, next: NextFu
 
     const startTime = Date.now();
     const sttProvider = getSTTProvider();
-    const result = await sttProvider.transcribe(audioBuffer, { mimeType });
+    const result = await sttProvider.transcribe(audioBuffer, { mimeType, customTranscript });
     const totalLatencyMs = Date.now() - startTime;
 
     logger.info('STT Transcription completed', {

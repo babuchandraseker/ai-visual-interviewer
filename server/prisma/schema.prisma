@@ -1,0 +1,241 @@
+// Prisma Schema for AI Visual Interviewer Backend Foundation
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------
+// Enums
+// ------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  RECRUITER
+}
+
+enum CandidateInviteStatus {
+  PENDING
+  USED
+  EXPIRED
+}
+
+enum InterviewSessionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  ABORTED
+}
+
+enum IntegrityEventType {
+  NO_FACE_DETECTED
+  MULTIPLE_FACES_DETECTED
+  CAMERA_DISCONNECTED
+  AUDIO_MUTED_EXTENDED
+}
+
+enum Severity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum Recommendation {
+  STRONG_PASS
+  PASS
+  BORDERLINE
+  FAIL
+}
+
+// ------------------------------------------------------
+// Models
+// ------------------------------------------------------
+
+model Organization {
+  id                 String              @id @default(uuid())
+  name               String
+  slug               String              @unique
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  users              User[]
+  jobRoles           JobRole[]
+  interviewTemplates InterviewTemplate[]
+  interviewSessions  InterviewSession[]
+
+  @@map("organizations")
+}
+
+model User {
+  id             String       @id @default(uuid())
+  email          String       @unique
+  passwordHash   String
+  name           String
+  role           UserRole     @default(RECRUITER)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@map("users")
+}
+
+model JobRole {
+  id                 String              @id @default(uuid())
+  title              String
+  department         String
+  targetLevel        String
+  requiredSkills     Json                // Array of skill tags e.g. ["Node.js", "PostgreSQL"]
+  organizationId     String
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  interviewTemplates InterviewTemplate[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([organizationId])
+  @@map("job_roles")
+}
+
+model InterviewTemplate {
+  id              String            @id @default(uuid())
+  title           String
+  targetDifficulty Int              @default(2) // 1: Beginner, 2: Intermediate, 3: Advanced, 4: Expert
+  durationMinutes Int               @default(30)
+  rubricWeights   Json              // JSON object containing category weight percentages
+  organizationId  String
+  organization    Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  jobRoleId       String
+  jobRole         JobRole           @relation(fields: [jobRoleId], references: [id], onDelete: Cascade)
+  candidateInvites CandidateInvite[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([organizationId])
+  @@index([jobRoleId])
+  @@map("interview_templates")
+}
+
+model CandidateInvite {
+  id                  String               @id @default(uuid())
+  email               String
+  candidateName       String
+  inviteToken         String               @unique // Cryptographically signed / random token
+  status              CandidateInviteStatus @default(PENDING)
+  expiresAt           DateTime
+  interviewTemplateId String
+  interviewTemplate   InterviewTemplate    @relation(fields: [interviewTemplateId], references: [id], onDelete: Cascade)
+  interviewSession    InterviewSession?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@index([inviteToken])
+  @@index([interviewTemplateId])
+  @@map("candidate_invites")
+}
+
+model InterviewSession {
+  id                String                 @id @default(uuid())
+  candidateInviteId String                 @unique
+  candidateInvite   CandidateInvite        @relation(fields: [candidateInviteId], references: [id], onDelete: Cascade)
+  organizationId    String
+  organization      Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  status            InterviewSessionStatus @default(NOT_STARTED)
+  currentDifficulty Int                    @default(2)
+  currentSkillTag   String?
+  startedAt         DateTime?
+  endedAt           DateTime?
+  questionInstances QuestionInstance[]
+  integrityEvents   IntegrityEvent[]
+  finalReport       FinalReport?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("interview_sessions")
+}
+
+model QuestionInstance {
+  id                 String            @id @default(uuid())
+  interviewSessionId String
+  interviewSession   InterviewSession  @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)
+  skillTag           String
+  difficultyLevel    Int
+  questionText       String
+  audioUrl           String?
+  orderIndex         Int
+  answerTranscript   AnswerTranscript?
+  evaluationRecord   EvaluationRecord?
+  createdAt          DateTime          @default(now())
+
+  @@index([interviewSessionId])
+  @@map("question_instances")
+}
+
+model AnswerTranscript {
+  id                 String           @id @default(uuid())
+  questionInstanceId String           @unique
+  questionInstance   QuestionInstance @relation(fields: [questionInstanceId], references: [id], onDelete: Cascade)
+  rawText            String
+  audioUrl           String?
+  durationSeconds    Float            @default(0)
+  wordCount          Int              @default(0)
+  createdAt          DateTime         @default(now())
+
+  @@map("answer_transcripts")
+}
+
+model EvaluationRecord {
+  id                    String           @id @default(uuid())
+  questionInstanceId    String           @unique
+  questionInstance      QuestionInstance @relation(fields: [questionInstanceId], references: [id], onDelete: Cascade)
+  technicalDepthScore   Float            @default(0)
+  problemSolvingScore   Float            @default(0)
+  communicationScore    Float            @default(0)
+  directQuotes          Json             // Array of verbatim quote strings
+  keyStrengths          Json             // Array of strengths strings
+  gapsIdentified        Json             // Array of gaps strings
+  scoringRationale      String
+  createdAt             DateTime         @default(now())
+
+  @@map("evaluation_records")
+}
+
+model IntegrityEvent {
+  id                 String             @id @default(uuid())
+  interviewSessionId String
+  interviewSession   InterviewSession   @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)
+  eventType          IntegrityEventType
+  severity           Severity           @default(WARNING)
+  durationMs         Int                @default(0)
+  telemetrySnapshot  Json?
+  timestamp          DateTime           @default(now())
+  createdAt          DateTime           @default(now())
+
+  @@index([interviewSessionId])
+  @@map("integrity_events")
+}
+
+model FinalReport {
+  id                  String           @id @default(uuid())
+  interviewSessionId  String           @unique
+  interviewSession    InterviewSession @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)
+  technicalDepthScore Float
+  problemSolvingScore Float
+  practicalExpScore   Float
+  communicationScore  Float
+  overallScore        Float
+  recommendation      Recommendation
+  evidenceQuotes      Json             // Summary quotes payload
+  requiresHumanReview Boolean          @default(false)
+  humanReviewReason   String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@map("final_reports")
+}

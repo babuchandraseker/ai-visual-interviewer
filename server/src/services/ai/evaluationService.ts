@@ -34,13 +34,45 @@ export class EvaluationService {
       };
     }
 
-    // Call LLM provider
-    const rawOutput = await this.llmProvider.evaluateAnswer({
-      ...input,
-      rawTranscript,
-    });
+    // Call LLM provider with bounded retry (max 2 attempts)
+    let rawOutput: any = null;
+    let attempts = 0;
+    const maxAttempts = 2;
+
+    while (attempts < maxAttempts) {
+      attempts++;
+      try {
+        rawOutput = await this.llmProvider.evaluateAnswer({
+          ...input,
+          rawTranscript,
+        });
+        if (rawOutput) break;
+      } catch (err: any) {
+        logger.warn(`[EvaluationService] LLM evaluation attempt ${attempts} failed: ${err.message}`);
+      }
+    }
+
+    if (!rawOutput) {
+      logger.error('[EvaluationService] All LLM evaluation attempts failed. Using neutral fallback evaluation.');
+      rawOutput = {
+        technicalDepthScore: 3.0,
+        problemSolvingScore: 3.0,
+        practicalExpScore: 3.0,
+        communicationScore: 3.0,
+        directQuotes: [rawTranscript.substring(0, 50)],
+        keyStrengths: ['Response submitted for evaluation'],
+        gapsIdentified: ['Evaluator provider timeout or temporary service unavailability'],
+        scoringRationale: 'System fallback evaluation due to evaluator provider timeout.',
+      };
+    }
 
     // Programmatically validate verbatim quote evidence against rawTranscript
+    // Normalization helper for whitespace and punctuation tolerance
+    const normalizeText = (str: string) =>
+      (str || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+
+    const normalizedRawTranscript = normalizeText(rawTranscript);
+
     const validatedQuotes: string[] = [];
     let isQuotesValid = true;
 
@@ -48,12 +80,19 @@ export class EvaluationService {
       const trimmedQuote = (quote || '').trim();
       if (!trimmedQuote) continue;
 
-      // Check exact substring match
-      if (rawTranscript.includes(trimmedQuote)) {
+      const normalizedQuote = normalizeText(trimmedQuote);
+
+      // Check exact substring match or normalized substring match
+      if (
+        rawTranscript.includes(trimmedQuote) ||
+        (normalizedQuote.length > 5 && normalizedRawTranscript.includes(normalizedQuote))
+      ) {
         validatedQuotes.push(trimmedQuote);
       } else {
         isQuotesValid = false;
-        logger.warn(`[EvaluationService] Quote validation failed! Quote "${trimmedQuote}" was not found in raw transcript.`);
+        logger.warn(
+          `[EvaluationService] Quote validation failed! Quote "${trimmedQuote}" was not found in raw transcript.`
+        );
       }
     }
 
@@ -89,7 +128,7 @@ export class EvaluationService {
   }
 
   private clampScore(val: number): number {
-    if (isNaN(val)) return 3.0;
+    if (val === null || val === undefined || isNaN(val)) return 3.0;
     return Math.max(1.0, Math.min(5.0, Number(val)));
   }
 }

@@ -14,6 +14,14 @@ const FORBIDDEN_PRIVACY_KEYS = [
   'picture',
   'biometric',
   'rawData',
+  'gaze',
+  'emotion',
+  'personality',
+  'nervousness',
+  'stress',
+  'attractiveness',
+  'race',
+  'gender',
 ];
 
 export const recordVisualTelemetry = async (

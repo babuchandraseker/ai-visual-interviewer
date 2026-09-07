@@ -46,8 +46,24 @@ export const createApp = (): Application => {
     legacyHeaders: false
   });
 
-  // Apply rate limiter specifically to auth routes
+  // Rate Limiting for Expensive AI / Audio Operations (60 requests per minute)
+  const aiOperationsLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000,
+    max: 60,
+    message: {
+      error: {
+        code: 'TOO_MANY_REQUESTS',
+        message: 'Rate limit exceeded for AI audio/evaluation requests. Please slow down.'
+      }
+    },
+    standardHeaders: true,
+    legacyHeaders: false
+  });
+
+  // Apply rate limiters
   app.use('/api/v1/auth/login', authLimiter);
+  app.use('/api/v1/audio/transcribe', aiOperationsLimiter);
+  app.use('/api/v1/audio/synthesize', aiOperationsLimiter);
 
   // Health Endpoint (Unversioned & Unauthenticated)
   app.use('/health', healthRoutes);

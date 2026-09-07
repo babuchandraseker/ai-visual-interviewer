@@ -90,6 +90,19 @@ export const streamAudioContent = async (
       throw ApiError.badRequest('Storage key is required');
     }
 
+    // Path Traversal Security Check
+    if (key.includes('..') || key.includes('%2e%2e') || key.includes('\\') || !key.startsWith('organizations/')) {
+      throw ApiError.badRequest('Security Error: Invalid storage key or path traversal sequence detected.');
+    }
+
+    // Organization Scoping Check (if authenticated user context is present)
+    if (req.user?.organizationId) {
+      const expectedOrgPrefix = `organizations/${req.user.organizationId}/`;
+      if (!key.startsWith(expectedOrgPrefix) && req.user.role !== 'ADMIN') {
+        throw ApiError.forbidden('Access denied to audio stream outside your organization.');
+      }
+    }
+
     if (expires > 0 && Math.floor(Date.now() / 1000) > expires) {
       throw ApiError.unauthorized('Signed audio URL token has expired');
     }

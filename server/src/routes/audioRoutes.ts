@@ -19,7 +19,7 @@ const synthesizeSchema = z.object({
 
 router.post('/transcribe', validateRequest(transcribeSchema), handleTranscribe);
 router.post('/synthesize', validateRequest(synthesizeSchema), handleSynthesize);
-router.get('/stream', streamAudioContent);
+router.get('/stream', requireAuth, streamAudioContent);
 router.get('/url/:audioAssetId', requireAuth, getAudioSignedUrl);
 router.delete('/:audioAssetId', requireAuth, deleteAudioAsset);
 

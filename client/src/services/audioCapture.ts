@@ -86,6 +86,7 @@ export class SpeechCaptureEngine {
           type: this.mediaRecorder?.mimeType || 'audio/webm',
         });
         const durationMs = Date.now() - this.recordingStartTime;
+        console.log(`[SpeechCaptureEngine] Audio recording completed: ${this.recordedChunks.length} chunks, ${audioBlob.size} bytes, ${durationMs}ms`);
         if (this.events.onSpeechEnd) {
           this.events.onSpeechEnd(audioBlob, durationMs);
         }

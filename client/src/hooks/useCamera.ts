@@ -35,6 +35,16 @@ export const useCamera = (): UseCameraReturn => {
   }, []);
 
   const startCamera = useCallback(async () => {
+    // Reuse existing active stream if already running
+    if (streamRef.current && streamRef.current.active) {
+      const tracks = streamRef.current.getVideoTracks ? streamRef.current.getVideoTracks() : streamRef.current.getTracks();
+      if (tracks.length > 0 && tracks[0].readyState === 'live') {
+        setStatus('READY');
+        setStream(streamRef.current);
+        return;
+      }
+    }
+
     setStatus('CHECKING');
     setErrorMessage(null);
 

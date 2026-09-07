@@ -151,6 +151,7 @@ model InterviewSession {
   endedAt           DateTime?
   questionInstances QuestionInstance[]
   integrityEvents   IntegrityEvent[]
+  audioAssets       AudioAsset[]
   finalReport       FinalReport?
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
@@ -171,6 +172,7 @@ model QuestionInstance {
   orderIndex         Int
   answerTranscript   AnswerTranscript?
   evaluationRecord   EvaluationRecord?
+  audioAsset         AudioAsset?
   createdAt          DateTime          @default(now())
 
   @@index([interviewSessionId])
@@ -185,6 +187,7 @@ model AnswerTranscript {
   audioUrl           String?
   durationSeconds    Float            @default(0)
   wordCount          Int              @default(0)
+  audioAsset         AudioAsset?
   createdAt          DateTime         @default(now())
 
   @@map("answer_transcripts")
@@ -208,6 +211,7 @@ model EvaluationRecord {
 
 model IntegrityEvent {
   id                 String             @id @default(uuid())
+  clientEventId      String?            @unique
   interviewSessionId String
   interviewSession   InterviewSession   @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)
   eventType          IntegrityEventType
@@ -218,7 +222,27 @@ model IntegrityEvent {
   createdAt          DateTime           @default(now())
 
   @@index([interviewSessionId])
+  @@index([clientEventId])
   @@map("integrity_events")
+}
+
+model AudioAsset {
+  id                 String            @id @default(uuid())
+  interviewSessionId String
+  interviewSession   InterviewSession  @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)
+  questionInstanceId String?           @unique
+  questionInstance   QuestionInstance? @relation(fields: [questionInstanceId], references: [id], onDelete: Cascade)
+  answerTranscriptId String?           @unique
+  answerTranscript   AnswerTranscript? @relation(fields: [answerTranscriptId], references: [id], onDelete: Cascade)
+  storageKey         String            @unique
+  contentType        String
+  sizeBytes          Int
+  durationMs         Int               @default(0)
+  checksum           String?
+  createdAt          DateTime          @default(now())
+
+  @@index([interviewSessionId])
+  @@map("audio_assets")
 }
 
 model FinalReport {

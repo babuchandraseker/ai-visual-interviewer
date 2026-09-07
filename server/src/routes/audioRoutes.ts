@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { handleTranscribe, handleSynthesize } from '../controllers/audioController';
+import { getAudioSignedUrl, streamAudioContent, deleteAudioAsset } from '../controllers/audioPersistenceController';
 import { z } from 'zod';
 import { validateRequest } from '../middleware/validateRequest';
+import { requireAuth } from '../middleware/authMiddleware';
 
 const router = Router();
 
@@ -17,5 +19,8 @@ const synthesizeSchema = z.object({
 
 router.post('/transcribe', validateRequest(transcribeSchema), handleTranscribe);
 router.post('/synthesize', validateRequest(synthesizeSchema), handleSynthesize);
+router.get('/stream', streamAudioContent);
+router.get('/url/:audioAssetId', requireAuth, getAudioSignedUrl);
+router.delete('/:audioAssetId', requireAuth, deleteAudioAsset);
 
 export default router;

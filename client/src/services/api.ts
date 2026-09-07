@@ -212,3 +212,83 @@ export const sendVisualTelemetry = async (
     return { success: false };
   }
 };
+
+export const uploadCandidateAudio = async (
+  sessionId: string,
+  answerId: string,
+  audioBlob: Blob,
+  durationMs: number = 0
+): Promise<{ success: boolean; audioAssetId: string; storageKey: string; signedUrl?: string }> => {
+  try {
+    const arrayBuffer = await audioBlob.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const audioBase64 = btoa(binary);
+
+    const response = await fetch(
+      `${API_BASE_URL}/sessions/${encodeURIComponent(sessionId)}/answers/${encodeURIComponent(answerId)}/audio`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          audioBase64,
+          mimeType: audioBlob.type || 'audio/webm',
+          durationMs,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const errorPayload: ApiErrorPayload = data.error || {
+        code: 'AUDIO_UPLOAD_FAILED',
+        message: 'Candidate audio persistence upload failed',
+      };
+      throw new ApiError(response.status, errorPayload.code, errorPayload.message);
+    }
+
+    return data;
+  } catch (error: any) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(500, 'NETWORK_ERROR', error.message || 'Audio upload network request failed');
+  }
+};
+
+export const getIntegrityTimeline = async (
+  sessionId: string,
+  limit: number = 50,
+  offset: number = 0
+): Promise<{ success: boolean; sessionId: string; totalEvents: number; events: any[] }> => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/sessions/${encodeURIComponent(sessionId)}/integrity-events?limit=${limit}&offset=${offset}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const errorPayload: ApiErrorPayload = data.error || {
+        code: 'TIMELINE_FAILED',
+        message: 'Failed to retrieve integrity event timeline',
+      };
+      throw new ApiError(response.status, errorPayload.code, errorPayload.message);
+    }
+
+    return data;
+  } catch (error: any) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(500, 'NETWORK_ERROR', error.message || 'Integrity timeline network request failed');
+  }
+};

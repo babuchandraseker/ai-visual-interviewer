@@ -1,6 +1,7 @@
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { prisma } from '../services/db';
 import { ApiError } from '../utils/apiError';
+import { AuthenticatedRequest } from '../types';
 import { IntegrityEventType, Severity } from '@prisma/client';
 
 const FORBIDDEN_PRIVACY_KEYS = [
@@ -16,7 +17,7 @@ const FORBIDDEN_PRIVACY_KEYS = [
 ];
 
 export const recordVisualTelemetry = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -49,7 +50,7 @@ export const recordVisualTelemetry = async (
       }
     }
 
-    const { eventType, timestamp, durationMs, faceCount, source } = body;
+    const { clientEventId, eventType, timestamp, durationMs, faceCount, source } = body;
 
     // Validate event type against Prisma IntegrityEventType enum
     if (!eventType || !Object.values(IntegrityEventType).includes(eventType as IntegrityEventType)) {
@@ -65,23 +66,49 @@ export const recordVisualTelemetry = async (
       throw ApiError.notFound('Interview session not found');
     }
 
+    // Organization isolation check if authenticated user is present
+    if (req.user && req.user.organizationId !== session.organizationId) {
+      throw ApiError.forbidden('Access denied to session outside your organization');
+    }
+
+    // IDEMPOTENCY GUARD: Check if clientEventId was already processed
+    if (clientEventId) {
+      const existing = await prisma.integrityEvent.findUnique({
+        where: { clientEventId },
+      });
+
+      if (existing) {
+        res.status(200).json({
+          success: true,
+          eventId: existing.id,
+          eventType: existing.eventType,
+          timestamp: existing.timestamp,
+          idempotent: true,
+        });
+        return;
+      }
+    }
+
     // Map severity based on objective event type
     let severity: Severity = Severity.WARNING;
     if (eventType === 'CAMERA_DISCONNECTED') {
       severity = Severity.CRITICAL;
     } else if (eventType === 'NO_FACE_DETECTED' || eventType === 'MULTIPLE_FACES_DETECTED') {
       severity = Severity.WARNING;
+    } else if (eventType === 'AUDIO_MUTED_EXTENDED') {
+      severity = Severity.WARNING;
     }
 
     // Persist IntegrityEvent in PostgreSQL
     const event = await prisma.integrityEvent.create({
       data: {
+        clientEventId: clientEventId || undefined,
         interviewSessionId: session.id,
         eventType: eventType as IntegrityEventType,
         severity,
-        durationMs: Number(durationMs) || 0,
+        durationMs: Math.max(0, Number(durationMs) || 0),
         telemetrySnapshot: {
-          faceCount: typeof faceCount === 'number' ? faceCount : undefined,
+          faceCount: typeof faceCount === 'number' && faceCount >= 0 ? faceCount : undefined,
           source: source || 'CLIENT_LOCAL_FACE_DETECTOR',
         },
         timestamp: timestamp ? new Date(timestamp) : new Date(),
@@ -93,6 +120,67 @@ export const recordVisualTelemetry = async (
       eventId: event.id,
       eventType: event.eventType,
       timestamp: event.timestamp,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getIntegrityTimeline = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { sessionId } = req.params;
+    const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || '50', 10)));
+    const offset = Math.max(0, parseInt((req.query.offset as string) || '0', 10));
+
+    if (!sessionId) {
+      throw ApiError.badRequest('Session ID is required');
+    }
+
+    const session = await prisma.interviewSession.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      throw ApiError.notFound('Interview session not found');
+    }
+
+    // Organization Isolation Check
+    if (req.user && req.user.organizationId !== session.organizationId) {
+      throw ApiError.forbidden('Access denied to session timeline outside your organization');
+    }
+
+    const totalEvents = await prisma.integrityEvent.count({
+      where: { interviewSessionId: session.id },
+    });
+
+    const events = await prisma.integrityEvent.findMany({
+      where: { interviewSessionId: session.id },
+      orderBy: { timestamp: 'asc' },
+      take: limit,
+      skip: offset,
+      select: {
+        id: true,
+        clientEventId: true,
+        eventType: true,
+        severity: true,
+        durationMs: true,
+        telemetrySnapshot: true,
+        timestamp: true,
+        createdAt: true,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      sessionId: session.id,
+      totalEvents,
+      limit,
+      offset,
+      events,
     });
   } catch (error) {
     next(error);

@@ -6,6 +6,7 @@ import {
   completeInterviewSession,
 } from '../controllers/sessionController';
 import { evaluateAudioTranscript } from '../controllers/audioEvaluationController';
+import { recordVisualTelemetry } from '../controllers/telemetryController';
 import { z } from 'zod';
 import { validateRequest } from '../middleware/validateRequest';
 
@@ -33,10 +34,19 @@ const evaluateTranscriptSchema = z.object({
   isFollowUp: z.boolean().optional(),
 });
 
+const visualTelemetrySchema = z.object({
+  eventType: z.string().min(1, 'eventType is required'),
+  timestamp: z.string().optional(),
+  durationMs: z.number().optional(),
+  faceCount: z.number().optional(),
+  source: z.string().optional(),
+}).passthrough();
+
 router.get('/validate/:token', validateInviteToken);
 router.post('/start', validateRequest(startSessionSchema), startInterviewSession);
 router.post('/:sessionId/events', validateRequest(recordEventSchema), recordSessionEvent);
 router.post('/:sessionId/evaluate', validateRequest(evaluateTranscriptSchema), evaluateAudioTranscript);
+router.post('/:sessionId/telemetry', validateRequest(visualTelemetrySchema), recordVisualTelemetry);
 router.post('/:sessionId/complete', completeInterviewSession);
 
 export default router;

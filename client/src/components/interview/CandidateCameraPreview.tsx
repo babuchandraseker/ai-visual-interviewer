@@ -1,14 +1,16 @@
 import React, { useEffect, useRef } from 'react';
-import { Camera, User } from 'lucide-react';
+import { Camera, User, AlertCircle } from 'lucide-react';
 
 interface CandidateCameraPreviewProps {
   stream: MediaStream | null;
   candidateName?: string;
+  warningMessage?: string | null;
 }
 
 export const CandidateCameraPreview: React.FC<CandidateCameraPreviewProps> = ({
   stream,
   candidateName = 'Candidate',
+  warningMessage,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -32,6 +34,14 @@ export const CandidateCameraPreview: React.FC<CandidateCameraPreviewProps> = ({
         <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950 text-slate-500 space-y-2">
           <User className="w-12 h-12 text-slate-600" />
           <span className="text-xs">Camera Feed Inactive</span>
+        </div>
+      )}
+
+      {/* Neutral Operational Warning Banner */}
+      {warningMessage && (
+        <div className="absolute top-3 left-3 right-3 bg-amber-500/90 backdrop-blur text-slate-950 font-medium text-xs px-3 py-1.5 rounded-md flex items-center space-x-2 shadow-md transition-all">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{warningMessage}</span>
         </div>
       )}
 

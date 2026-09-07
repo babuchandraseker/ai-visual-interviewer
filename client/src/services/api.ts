@@ -174,3 +174,41 @@ export const evaluateSessionTranscript = async (
     throw new ApiError(500, 'NETWORK_ERROR', error.message || 'Evaluation network request failed');
   }
 };
+
+export const sendVisualTelemetry = async (
+  sessionId: string,
+  payload: {
+    eventType: string;
+    timestamp: string;
+    durationMs?: number;
+    faceCount?: number;
+    source?: string;
+  }
+): Promise<{ success: boolean; eventId?: string }> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/sessions/${encodeURIComponent(sessionId)}/telemetry`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const errorPayload: ApiErrorPayload = data.error || {
+        code: 'TELEMETRY_FAILED',
+        message: 'Visual telemetry report failed',
+      };
+      throw new ApiError(response.status, errorPayload.code, errorPayload.message);
+    }
+
+    return data;
+  } catch (error: any) {
+    if (error instanceof ApiError) throw error;
+    // Subsystem error resilience: swallow network error gracefully for client telemetry
+    console.warn('[VisualTelemetry] API transmission error:', error.message);
+    return { success: false };
+  }
+};

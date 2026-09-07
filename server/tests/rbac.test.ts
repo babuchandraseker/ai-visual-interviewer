@@ -24,9 +24,12 @@ describe('Role-Based Access Control (RBAC) & Auth Middleware', () => {
 
   it('should allow access to recruiter dashboard when valid JWT token is provided', async () => {
     // Mock Prisma count methods for isolated test execution
-    jest.spyOn(prisma.jobRole, 'count').mockResolvedValueOnce(4 as any);
-    jest.spyOn(prisma.interviewTemplate, 'count').mockResolvedValueOnce(2 as any);
-    jest.spyOn(prisma.interviewSession, 'count').mockResolvedValueOnce(12 as any);
+    jest.spyOn(prisma.interviewSession, 'count')
+      .mockResolvedValueOnce(12) // totalInterviews
+      .mockResolvedValueOnce(8)  // completedInterviews
+      .mockResolvedValueOnce(3); // inProgressInterviews
+    jest.spyOn(prisma.candidateInvite, 'count').mockResolvedValueOnce(2); // pendingInvites
+    jest.spyOn(prisma.finalReport, 'findMany').mockResolvedValueOnce([{ overallScore: 4.0 }] as any);
 
     const token = signToken({
       userId: 'usr_mock_123',
@@ -41,12 +44,14 @@ describe('Role-Based Access Control (RBAC) & Auth Middleware', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
-      message: 'Recruiter dashboard overview',
+      success: true,
       organizationId: 'org_mock_456',
       metrics: {
-        totalJobRoles: 4,
-        totalTemplates: 2,
-        totalSessions: 12
+        totalInterviews: 12,
+        completedInterviews: 8,
+        inProgressInterviews: 3,
+        pendingInvites: 2,
+        averageScore: 4.0
       }
     });
   });

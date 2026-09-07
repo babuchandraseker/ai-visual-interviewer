@@ -1,5 +1,14 @@
 /// <reference types="vite/client" />
-import { CandidateInviteValidation, ApiErrorPayload, STTResponse, TTSResponse } from '../types';
+import {
+  CandidateInviteValidation,
+  ApiErrorPayload,
+  STTResponse,
+  TTSResponse,
+  RecruiterMetrics,
+  RecruiterInterviewItem,
+  EvidenceReportDTO,
+  RecruiterLoginResponse,
+} from '../types';
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || '/api/v1';
 
@@ -292,3 +301,195 @@ export const getIntegrityTimeline = async (
     throw new ApiError(500, 'NETWORK_ERROR', error.message || 'Integrity timeline network request failed');
   }
 };
+
+const getAuthHeaders = (): Record<string, string> => {
+  const token = localStorage.getItem('recruiter_token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
+
+export const loginRecruiter = async (
+  email: string,
+  password: string
+): Promise<RecruiterLoginResponse> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const errorPayload: ApiErrorPayload = data.error || {
+        code: 'AUTH_FAILED',
+        message: 'Invalid credentials',
+      };
+      throw new ApiError(response.status, errorPayload.code, errorPayload.message);
+    }
+
+    if (data.token) {
+      localStorage.setItem('recruiter_token', data.token);
+    }
+
+    return data as RecruiterLoginResponse;
+  } catch (error: any) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(500, 'NETWORK_ERROR', error.message || 'Login request failed');
+  }
+};
+
+export const getRecruiterDashboardMetrics = async (): Promise<{
+  success: boolean;
+  organizationId: string;
+  metrics: RecruiterMetrics;
+}> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/recruiter/dashboard`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const errorPayload: ApiErrorPayload = data.error || {
+        code: 'METRICS_FAILED',
+        message: 'Failed to load recruiter metrics',
+      };
+      throw new ApiError(response.status, errorPayload.code, errorPayload.message);
+    }
+
+    return data;
+  } catch (error: any) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(500, 'NETWORK_ERROR', error.message || 'Failed to fetch dashboard metrics');
+  }
+};
+
+export const getRecruiterInterviews = async (params?: {
+  page?: number;
+  limit?: number;
+  status?: string;
+  jobRoleId?: string;
+  candidateName?: string;
+  sortBy?: string;
+  order?: string;
+}): Promise<{
+  success: boolean;
+  pagination: { total: number; page: number; limit: number; totalPages: number };
+  interviews: RecruiterInterviewItem[];
+}> => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.jobRoleId) queryParams.append('jobRoleId', params.jobRoleId);
+    if (params?.candidateName) queryParams.append('candidateName', params.candidateName);
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params?.order) queryParams.append('order', params.order);
+
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
+    const response = await fetch(`${API_BASE_URL}/recruiter/interviews${queryString}`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const errorPayload: ApiErrorPayload = data.error || {
+        code: 'INTERVIEWS_FAILED',
+        message: 'Failed to load interviews list',
+      };
+      throw new ApiError(response.status, errorPayload.code, errorPayload.message);
+    }
+
+    return data;
+  } catch (error: any) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(500, 'NETWORK_ERROR', error.message || 'Failed to fetch recruiter interviews');
+  }
+};
+
+export const getInterviewEvidenceReport = async (
+  sessionId: string
+): Promise<{
+  success: boolean;
+  report: EvidenceReportDTO;
+}> => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/recruiter/interviews/${encodeURIComponent(sessionId)}/report`,
+      {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const errorPayload: ApiErrorPayload = data.error || {
+        code: 'REPORT_FAILED',
+        message: 'Failed to load interview evidence report',
+      };
+      throw new ApiError(response.status, errorPayload.code, errorPayload.message);
+    }
+
+    return data;
+  } catch (error: any) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(500, 'NETWORK_ERROR', error.message || 'Failed to fetch interview evidence report');
+  }
+};
+
+export const saveRecruiterDecision = async (
+  sessionId: string,
+  decision: 'ADVANCE' | 'HOLD' | 'REJECT',
+  notes?: string
+): Promise<{
+  success: boolean;
+  sessionId: string;
+  decision: string;
+  notes: string;
+  updatedAt: string;
+}> => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/recruiter/interviews/${encodeURIComponent(sessionId)}/decision`,
+      {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ decision, notes }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const errorPayload: ApiErrorPayload = data.error || {
+        code: 'DECISION_FAILED',
+        message: 'Failed to record recruiter decision',
+      };
+      throw new ApiError(response.status, errorPayload.code, errorPayload.message);
+    }
+
+    return data;
+  } catch (error: any) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(500, 'NETWORK_ERROR', error.message || 'Failed to save recruiter decision');
+  }
+};
+
+export const getCandidateAudioUrl = (sessionId: string, answerId: string): string => {
+  const token = localStorage.getItem('recruiter_token');
+  const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : '';
+  return `${API_BASE_URL}/sessions/${encodeURIComponent(sessionId)}/answers/${encodeURIComponent(answerId)}/audio${tokenQuery}`;
+};
+

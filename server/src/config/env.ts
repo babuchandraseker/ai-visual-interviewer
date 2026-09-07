@@ -12,7 +12,8 @@ export const env = {
   JWT_SECRET: process.env.JWT_SECRET || 'super-secret-development-key-change-in-production',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',
   
-  // Audio Engine Service API Keys (Server-side only)
+  // Audio & AI Engine Service API Keys (Server-side only)
   DEEPGRAM_API_KEY: process.env.DEEPGRAM_API_KEY || '',
   ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY || '',
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
 };

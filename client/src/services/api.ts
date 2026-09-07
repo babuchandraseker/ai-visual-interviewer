@@ -111,3 +111,66 @@ export const synthesizeSpeech = async (text: string, voiceId?: string): Promise<
     throw new ApiError(500, 'NETWORK_ERROR', error.message || 'Speech synthesis network request failed');
   }
 };
+
+export interface EvaluationResponse {
+  success: boolean;
+  questionInstanceId: string;
+  evaluation: {
+    technicalDepthScore: number;
+    problemSolvingScore: number;
+    practicalExpScore: number;
+    communicationScore: number;
+    overallScore: number;
+    directQuotes: string[];
+    validatedQuotes: string[];
+    keyStrengths: string[];
+    gapsIdentified: string[];
+    scoringRationale: string;
+    isQuotesValid: boolean;
+  };
+  adaptation: {
+    nextDifficulty: number;
+    difficultyChange: 'INCREASE' | 'DECREASE' | 'MAINTAIN';
+    shouldFollowUp: boolean;
+    followUpTopic?: string;
+    reasoning: string;
+  };
+}
+
+export const evaluateSessionTranscript = async (
+  sessionId: string,
+  payload: {
+    questionInstanceId?: string;
+    skillTag?: string;
+    difficultyLevel?: number;
+    questionText?: string;
+    rawTranscript?: string;
+    durationSeconds?: number;
+    isFollowUp?: boolean;
+  }
+): Promise<EvaluationResponse> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/sessions/${encodeURIComponent(sessionId)}/evaluate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const errorPayload: ApiErrorPayload = data.error || {
+        code: 'EVALUATION_FAILED',
+        message: 'Transcript evaluation request failed',
+      };
+      throw new ApiError(response.status, errorPayload.code, errorPayload.message);
+    }
+
+    return data as EvaluationResponse;
+  } catch (error: any) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(500, 'NETWORK_ERROR', error.message || 'Evaluation network request failed');
+  }
+};

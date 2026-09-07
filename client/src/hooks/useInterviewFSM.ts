@@ -9,6 +9,7 @@ import { transition, initialContext } from '../fsm/interviewFSM';
 import { DeterministicQuestionOrchestrator } from '../orchestrator/questionOrchestrator';
 import { InterviewTimer } from '../services/interviewTimer';
 import { useAudioEngine } from './useAudioEngine';
+import { evaluateSessionTranscript } from '../services/api';
 
 export interface UseInterviewFSMReturn {
   state: InterviewState;
@@ -78,20 +79,32 @@ export const useInterviewFSM = (
         break;
       }
       case 'PROCESS_EVALUATION_PLACEHOLDER': {
-        // Controlled placeholder for Phase 5 LLM Evaluation
-        setTimeout(() => {
+        const rawTranscript = audioEngine.transcript?.transcript || '';
+        const durationSec = Math.round((audioEngine.transcript?.durationMs || 0) / 1000);
+        evaluateSessionTranscript(currentCtx.sessionId, {
+          skillTag: currentCtx.currentQuestion?.skill || 'General',
+          difficultyLevel: currentCtx.currentQuestion?.difficulty || 2,
+          questionText: currentCtx.currentQuestion?.text || '',
+          rawTranscript,
+          durationSeconds: durationSec,
+        }).then((res) => {
+          dispatch({
+            type: 'EVALUATION_READY',
+            result: { questionId: action.questionId, completed: true, evaluation: res.evaluation, adaptation: res.adaptation },
+          });
+        }).catch(() => {
+          // Fallback on network error to allow FSM progression
           dispatch({
             type: 'EVALUATION_READY',
             result: { questionId: action.questionId, completed: true },
           });
-        }, 500);
+        });
         break;
       }
       case 'EXECUTE_ADAPTATION': {
-        // Controlled placeholder for Phase 5 LLM Adaptive Questioning
         setTimeout(() => {
           dispatch({ type: 'ADAPTATION_COMPLETE' });
-        }, 300);
+        }, 200);
         break;
       }
       case 'PLAY_WRAPUP': {

@@ -35,6 +35,8 @@ export interface EvaluationResult {
   questionId: string;
   score?: number;
   completed: boolean;
+  evaluation?: any;
+  adaptation?: any;
 }
 
 export interface InterviewContext {

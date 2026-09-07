@@ -134,6 +134,8 @@ export const transition = (
             currentQuestion: event.question,
             currentQuestionIndex: nextIndex,
             questionsAsked: [...context.questionsAsked, event.question.id],
+            lastTranscript: null,
+            lastError: null,
           },
           action: { type: 'PLAY_QUESTION', question: event.question },
         };

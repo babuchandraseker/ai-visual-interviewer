@@ -85,6 +85,55 @@ describe('Pure Interview FSM State Transition Engine', () => {
     expect(res.action?.type).toBe('PLAY_WRAPUP');
   });
 
+  it('should handle empty answer (NO_ANSWER) without fabricating transcript', () => {
+    let ctx = { ...initialContext, currentQuestion: sampleQuestion };
+    const res = transition(
+      'LISTENING',
+      { type: 'ANSWER_CAPTURED', transcript: '', durationMs: 0 },
+      ctx
+    );
+    expect(res.nextState).toBe('EVALUATING');
+    expect(res.nextContext.lastTranscript).toBe('');
+    expect(res.action?.type).toBe('PROCESS_EVALUATION_PLACEHOLDER');
+    expect((res.action as any).transcript).toBe('');
+  });
+
+  it('should reset lastTranscript when transitioning to a new question to prevent contamination', () => {
+    // Context with previous question answer
+    let ctx = {
+      ...initialContext,
+      currentQuestion: sampleQuestion,
+      lastTranscript: 'Previous question answer text that must not leak.',
+    };
+
+    const nextQuestion: InterviewQuestion = {
+      id: 'PG-002',
+      skill: 'PostgreSQL',
+      difficulty: 2,
+      type: 'technical',
+      text: 'Explain indexing in PostgreSQL.',
+    };
+
+    const res = transition(
+      'QUESTION_SELECT',
+      { type: 'QUESTION_SELECTED', question: nextQuestion },
+      ctx
+    );
+    expect(res.nextState).toBe('ASKING');
+    expect(res.nextContext.currentQuestion?.id).toBe('PG-002');
+    expect(res.nextContext.lastTranscript).toBeNull();
+  });
+
+  it('should strictly reject EVALUATION_READY when in ADAPTING state', () => {
+    const res = transition(
+      'ADAPTING',
+      { type: 'EVALUATION_READY', result: { questionId: 'NODE-001', completed: true } },
+      initialContext
+    );
+    expect(res.nextState).toBe('ADAPTING');
+    expect(res.nextContext.lastError).toContain('Invalid state transition: State [ADAPTING] cannot process event [EVALUATION_READY]');
+  });
+
   it('should remain in COMPLETED state and ignore events', () => {
     const res = transition('COMPLETED', { type: 'START_INTERVIEW' }, initialContext);
     expect(res.nextState).toBe('COMPLETED');

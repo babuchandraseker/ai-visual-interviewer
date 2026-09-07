@@ -125,7 +125,7 @@ export const QuestionPanel: React.FC<QuestionPanelProps> = ({
               <span className="text-slate-500 font-normal">STT Provider: {transcript.provider}</span>
             </div>
             <p className="text-slate-200 text-sm italic font-sans leading-relaxed">
-              "{transcript.transcript}"
+              {transcript.transcript.trim() ? `"${transcript.transcript}"` : '(No speech detected / Empty answer)'}
             </p>
           </div>
         )}

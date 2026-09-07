@@ -8,8 +8,16 @@ export const handleTranscribe = async (req: Request, res: Response, next: NextFu
   try {
     const { audioBase64, mimeType, customTranscript } = req.body;
 
-    if (!audioBase64 || typeof audioBase64 !== 'string') {
-      throw ApiError.badRequest('audioBase64 string is required');
+    if (!audioBase64 || typeof audioBase64 !== 'string' || audioBase64.trim() === '') {
+      res.status(200).json({
+        success: true,
+        transcript: '',
+        confidence: 0,
+        durationMs: 0,
+        provider: getSTTProvider().name,
+        totalLatencyMs: 0,
+      });
+      return;
     }
 
     const audioBuffer = Buffer.from(audioBase64, 'base64');
@@ -20,7 +28,15 @@ export const handleTranscribe = async (req: Request, res: Response, next: NextFu
     }
 
     if (audioBuffer.length === 0) {
-      throw ApiError.badRequest('Empty audio payload provided');
+      res.status(200).json({
+        success: true,
+        transcript: '',
+        confidence: 0,
+        durationMs: 0,
+        provider: getSTTProvider().name,
+        totalLatencyMs: 0,
+      });
+      return;
     }
 
     const startTime = Date.now();

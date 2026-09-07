@@ -23,13 +23,65 @@ describe('Audio Engine API Endpoints (/api/v1/audio)', () => {
       expect(response.body).toHaveProperty('totalLatencyMs');
     });
 
-    it('should return 400 Bad Request when audioBase64 is missing', async () => {
+    it('should return empty transcript on empty audio payload', async () => {
       const response = await request(app)
         .post('/api/v1/audio/transcribe')
-        .send({});
+        .send({
+          audioBase64: '',
+          mimeType: 'audio/webm',
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body.transcript).toBe('');
+      expect(response.body.confidence).toBe(0);
+    });
+
+    it('should return custom transcript when provided to MockSTTProvider', async () => {
+      const mockAudioBase64 = Buffer.from('test-audio-bytes').toString('base64');
+      const response = await request(app)
+        .post('/api/v1/audio/transcribe')
+        .send({
+          audioBase64: mockAudioBase64,
+          mimeType: 'audio/webm',
+          customTranscript: 'My test spoken answer',
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.transcript).toBe('My test spoken answer');
+    });
+
+    it('should return empty transcript when no speech was detected/provided in MockSTTProvider', async () => {
+      const mockAudioBase64 = Buffer.from('silent-audio').toString('base64');
+      const response = await request(app)
+        .post('/api/v1/audio/transcribe')
+        .send({
+          audioBase64: mockAudioBase64,
+          mimeType: 'audio/webm',
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.transcript).toBe('');
+      expect(response.body.confidence).toBe(0);
+    });
+
+    it('should return 400 when STT_PROVIDER=deepgram is configured without API key', async () => {
+      const { env } = require('../src/config/env');
+      const origVal = env.STT_PROVIDER;
+      env.STT_PROVIDER = 'deepgram';
+
+      const mockAudioBase64 = Buffer.from('test-audio').toString('base64');
+      const response = await request(app)
+        .post('/api/v1/audio/transcribe')
+        .send({
+          audioBase64: mockAudioBase64,
+          mimeType: 'audio/webm',
+        });
 
       expect(response.status).toBe(400);
-      expect(response.body.error.code).toBe('BAD_REQUEST');
+      expect(response.body.error.message).toContain('DEEPGRAM_API_KEY');
+
+      env.STT_PROVIDER = origVal;
     });
   });
 

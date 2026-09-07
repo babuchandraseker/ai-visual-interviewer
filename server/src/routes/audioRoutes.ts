@@ -8,8 +8,9 @@ import { requireAuth } from '../middleware/authMiddleware';
 const router = Router();
 
 const transcribeSchema = z.object({
-  audioBase64: z.string().min(1, 'Audio base64 data is required'),
+  audioBase64: z.string().optional().default(''),
   mimeType: z.string().optional(),
+  customTranscript: z.string().optional(),
 });
 
 const synthesizeSchema = z.object({

@@ -44,6 +44,14 @@ export class AudioPlaybackEngine {
     } catch (err: any) {
       this.isPlaying = false;
       this.currentAudio = null;
+      // Ignore intentional playback interruptions when stopping TTS for candidate listening
+      if (
+        err.name === 'AbortError' ||
+        err.name === 'NotAllowedError' ||
+        (err.message && err.message.includes('interrupted by a call to pause'))
+      ) {
+        return;
+      }
       if (this.events.onError) {
         this.events.onError(new Error(err.message || 'Failed to start audio playback'));
       }

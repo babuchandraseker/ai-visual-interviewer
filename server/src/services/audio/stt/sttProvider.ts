@@ -7,7 +7,7 @@ export class MockSTTProvider implements ISTTProvider {
   public name = 'MockSTT (Development Only)';
 
   async transcribe(audioBuffer: Buffer, options?: STTTranscribeOptions): Promise<STTResult> {
-    const durationMs = Math.round((audioBuffer.length / 32000) * 1000) || 1200;
+    const durationMs = Math.round((audioBuffer.length / 32000) * 1000) || 0;
     
     // If client passes a web speech transcript hint or custom transcript, use it
     if (options?.customTranscript && options.customTranscript.trim() !== '') {
@@ -19,19 +19,10 @@ export class MockSTTProvider implements ISTTProvider {
       };
     }
 
-    // Default mock transcript indicator in dev mode
-    const mockTranscripts = [
-      "In my technical experience, I have designed scalable microservices with PostgreSQL indexing and Redis caching.",
-      "To optimize database read queries, I implement B-tree composite indexes and query execution plan analysis.",
-      "The Event Loop processes asynchronous non-blocking I/O callbacks efficiently using microtask queues.",
-      "We maintained system resilience under peak loads using circuit breakers and connection pooling."
-    ];
-
-    const transcript = mockTranscripts[Math.floor(Math.random() * mockTranscripts.length)];
-
+    // Default: Return empty transcript when candidate said nothing / no speech recognized
     return {
-      transcript,
-      confidence: 0.95,
+      transcript: '',
+      confidence: 0,
       durationMs,
       provider: this.name,
     };
@@ -137,6 +128,27 @@ export class DeepgramSTTProvider implements ISTTProvider {
 }
 
 export const getSTTProvider = (): ISTTProvider => {
+  const providerReq = env.STT_PROVIDER;
+
+  if (providerReq === 'deepgram' || providerReq === 'real') {
+    if (!env.DEEPGRAM_API_KEY || env.DEEPGRAM_API_KEY.trim() === '') {
+      throw ApiError.badRequest('Real STT Provider (Deepgram) is requested but DEEPGRAM_API_KEY is not configured in server environment.');
+    }
+    return new DeepgramSTTProvider(env.DEEPGRAM_API_KEY);
+  }
+
+  if (providerReq === 'whisper') {
+    if (!env.OPENAI_API_KEY || env.OPENAI_API_KEY.trim() === '') {
+      throw ApiError.badRequest('Real STT Provider (OpenAI Whisper) is requested but OPENAI_API_KEY is not configured in server environment.');
+    }
+    return new OpenAIWhisperSTTProvider(env.OPENAI_API_KEY);
+  }
+
+  if (providerReq === 'mock') {
+    return new MockSTTProvider();
+  }
+
+  // Automatic provider selection based on available API keys
   if (env.DEEPGRAM_API_KEY && env.DEEPGRAM_API_KEY.trim() !== '') {
     return new DeepgramSTTProvider(env.DEEPGRAM_API_KEY);
   }

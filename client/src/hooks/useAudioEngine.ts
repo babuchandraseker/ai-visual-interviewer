@@ -69,16 +69,23 @@ export const useAudioEngine = (configOptions: Partial<AudioConfig> = {}): UseAud
   }, []);
 
   const processTranscription = useCallback(async (audioBlob: Blob, durationMs: number) => {
+    const clientCapturedTranscript = liveTranscriptRef.current.trim();
+    stopWebSpeech();
+
     if (audioBlob.size === 0) {
-      setStatus('READY');
+      setTranscript({
+        transcript: '',
+        confidence: 0,
+        durationMs: 0,
+        provider: 'None',
+        recordedAt: new Date().toISOString(),
+      });
+      setStatus('TRANSCRIPT_READY');
       return;
     }
 
     setStatus('TRANSCRIBING');
     setErrorMessage(null);
-
-    const clientCapturedTranscript = liveTranscriptRef.current.trim();
-    stopWebSpeech();
 
     try {
       const sttResponse = await transcribeAudio(
@@ -87,8 +94,10 @@ export const useAudioEngine = (configOptions: Partial<AudioConfig> = {}): UseAud
         clientCapturedTranscript || undefined
       );
 
+      const finalTranscript = (sttResponse.transcript || '').trim();
+
       setTranscript({
-        transcript: sttResponse.transcript,
+        transcript: finalTranscript,
         confidence: sttResponse.confidence,
         durationMs: sttResponse.durationMs,
         provider: sttResponse.provider,
@@ -170,10 +179,9 @@ export const useAudioEngine = (configOptions: Partial<AudioConfig> = {}): UseAud
 
   const resetTranscript = useCallback(() => {
     setTranscript(null);
-    if (status === 'TRANSCRIPT_READY') {
-      setStatus('READY');
-    }
-  }, [status]);
+    liveTranscriptRef.current = '';
+    setStatus('READY');
+  }, []);
 
   // Clean up media streams and audio engines on unmount
   useEffect(() => {

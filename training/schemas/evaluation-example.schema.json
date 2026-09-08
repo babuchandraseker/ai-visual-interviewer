@@ -1,0 +1,165 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EvaluationExampleSchema",
+  "description": "Standardized schema for technical interview evaluation training and validation examples.",
+  "type": "object",
+  "required": [
+    "example_id",
+    "question_id",
+    "question",
+    "evaluated_skill",
+    "difficulty",
+    "candidate_transcript",
+    "expected_concepts",
+    "expert_evaluation"
+  ],
+  "properties": {
+    "example_id": {
+      "type": "string",
+      "description": "Unique identifier for the training/evaluation example."
+    },
+    "question_id": {
+      "type": "string",
+      "description": "Identifier referencing the source technical question."
+    },
+    "question": {
+      "type": "string",
+      "minLength": 5,
+      "description": "The exact interview question text presented to the candidate."
+    },
+    "evaluated_skill": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Primary technical skill or competency being evaluated (e.g. Node.js, PostgreSQL, Distributed Systems)."
+    },
+    "difficulty": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4,
+      "description": "Target difficulty level of the question on a standard 1-4 scale."
+    },
+    "candidate_transcript": {
+      "type": "string",
+      "description": "Verbatim transcript of the candidate response (may be empty for silence/no-answer)."
+    },
+    "expected_concepts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Key technical concepts, architectural primitives, or keywords expected in a complete answer."
+    },
+    "expert_evaluation": {
+      "type": "object",
+      "required": [
+        "status",
+        "technical_depth",
+        "problem_solving",
+        "practical_experience",
+        "communication_clarity",
+        "overall_score",
+        "direct_quotes",
+        "key_strengths",
+        "gaps_identified",
+        "scoring_rationale",
+        "recommended_difficulty"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "ANSWERED",
+            "NO_ANSWER",
+            "PARTIALLY_ANSWERED"
+          ],
+          "description": "Evaluation outcome status indicating whether candidate provided an answer or no-answer."
+        },
+        "technical_depth": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 1.0,
+          "maximum": 5.0,
+          "description": "Score for Technical Depth (1.0-5.0). Null if status is NO_ANSWER."
+        },
+        "problem_solving": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 1.0,
+          "maximum": 5.0,
+          "description": "Score for Problem Solving (1.0-5.0). Null if status is NO_ANSWER."
+        },
+        "practical_experience": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 1.0,
+          "maximum": 5.0,
+          "description": "Score for Practical Experience (1.0-5.0). Null if status is NO_ANSWER."
+        },
+        "communication_clarity": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 1.0,
+          "maximum": 5.0,
+          "description": "Score for Communication Clarity (1.0-5.0). Null if status is NO_ANSWER."
+        },
+        "overall_score": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 1.0,
+          "maximum": 5.0,
+          "description": "Overall weighted rubric score: 0.35*TD + 0.25*PS + 0.20*PE + 0.20*CC. Null if status is NO_ANSWER."
+        },
+        "direct_quotes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Verbatim quote strings extracted directly from candidate_transcript. Must be empty if NO_ANSWER."
+        },
+        "key_strengths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Bullet points highlighting specific demonstrated competencies and correct concepts."
+        },
+        "gaps_identified": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Bullet points highlighting technical omissions, misconceptions, or unaddressed aspects."
+        },
+        "scoring_rationale": {
+          "type": "string",
+          "description": "Concise expert narrative explaining and justifying the awarded scores."
+        },
+        "recommended_follow_up": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Optional recommended follow-up topic or probing question to test depth or resolve gaps."
+        },
+        "recommended_difficulty": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4,
+          "description": "Recommended difficulty level for the subsequent question (1-4)."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

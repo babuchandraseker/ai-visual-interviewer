@@ -1,0 +1,139 @@
+{
+  "rubric_version": "1.0.0",
+  "title": "AI Visual Interviewer Standardized Technical Evaluation Rubric",
+  "description": "Standardized evaluation framework for objective, evidence-based technical assessment. Evaluates candidate responses across four weighted competency dimensions.",
+  "score_range": {
+    "min": 1.0,
+    "max": 5.0,
+    "step": 0.1
+  },
+  "dimensions": {
+    "technical_depth": {
+      "name": "Technical Depth & Domain Accuracy",
+      "weight": 0.35,
+      "description": "Evaluates architectural correctness, internal mechanisms, memory models, protocols, algorithms, and domain-specific knowledge.",
+      "levels": {
+        "1": {
+          "label": "Poor / Fundamentally Incorrect",
+          "criteria": "Provides incorrect facts, displays major technical misconceptions, or fails to understand core architectural concepts."
+        },
+        "2": {
+          "label": "Weak / Significant Gaps",
+          "criteria": "Demonstrates superficial knowledge with critical omissions, confuses basic primitives, or relies on incorrect technical assumptions."
+        },
+        "3": {
+          "label": "Average / Adequate",
+          "criteria": "Correctly explains standard mechanics and definitions, but lacks depth regarding edge cases, internal implementation, or trade-offs."
+        },
+        "4": {
+          "label": "Strong / Mostly Complete",
+          "criteria": "Comprehensive understanding of technical concepts, accurate terminology, clear articulation of underlying mechanisms and operational trade-offs."
+        },
+        "5": {
+          "label": "Excellent / Deep & Authoritative",
+          "criteria": "Mastery of system internals, low-level execution details, failure modes, concurrency, memory models, and advanced optimization nuances."
+        }
+      }
+    },
+    "problem_solving": {
+      "name": "Problem Solving & Analytical Logic",
+      "weight": 0.25,
+      "description": "Evaluates structured reasoning, root cause analysis, methodical trade-off evaluation, and logical problem decomposition.",
+      "levels": {
+        "1": {
+          "label": "Poor / Illogical Approach",
+          "criteria": "Lacks structure, proposes contradictory or dangerous solutions, and exhibits no clear reasoning process."
+        },
+        "2": {
+          "label": "Weak / Disorganized Reasoning",
+          "criteria": "Jumps to hasty conclusions without analyzing constraints, overlooks obvious failure modes, and struggles to break down complexity."
+        },
+        "3": {
+          "label": "Average / Standard Methodical Approach",
+          "criteria": "Follows a reasonable step-by-step approach to arrive at a viable solution, but does not thoroughly evaluate alternative trade-offs."
+        },
+        "4": {
+          "label": "Strong / Systematic & Rigorous",
+          "criteria": "Methodically decomposes problems, identifies edge cases, evaluates trade-offs between speed/memory/complexity, and justifies design choices."
+        },
+        "5": {
+          "label": "Excellent / Multi-Dimensional Synthesis",
+          "criteria": "Exceptional first-principles reasoning, anticipates second-order failure modes, proactively optimizes bottlenecks, and validates edge boundaries."
+        }
+      }
+    },
+    "practical_experience": {
+      "name": "Practical Experience & Production Readiness",
+      "weight": 0.2,
+      "description": "Evaluates real-world production experience, debugging instincts, operational monitoring, resiliency, schema migrations, and tool mastery.",
+      "levels": {
+        "1": {
+          "label": "Poor / No Practical Understanding",
+          "criteria": "Purely theoretical or incorrect understanding with no sense of real-world constraints or production safety."
+        },
+        "2": {
+          "label": "Weak / Limited Practical Exposure",
+          "criteria": "Limited to toy/tutorial examples; ignores production realities such as connection pooling, indexing costs, rate limits, or logging."
+        },
+        "3": {
+          "label": "Average / Competent Practical Knowledge",
+          "criteria": "Familiar with standard production patterns, tooling, and basic deployment workflows, but lacks experience with high-scale challenges."
+        },
+        "4": {
+          "label": "Strong / Proven Production Instincts",
+          "criteria": "Cites realistic production patterns, observability, disaster recovery, zero-downtime migrations, caching layers, and troubleshooting steps."
+        },
+        "5": {
+          "label": "Excellent / Battle-Tested Engineering",
+          "criteria": "Deep production war stories, advanced telemetry/tracing, capacity planning, distributed transactions, zero-trust security, and resilience engineering."
+        }
+      }
+    },
+    "communication_clarity": {
+      "name": "Communication Clarity & Structure",
+      "weight": 0.2,
+      "description": "Evaluates clarity, concise delivery, structured explanations (top-down / pyramid principle), and professional technical communication.",
+      "levels": {
+        "1": {
+          "label": "Poor / Incoherent",
+          "criteria": "Rambling, highly disjointed, unintelligible, or completely unresponsive to the specific question asked."
+        },
+        "2": {
+          "label": "Weak / Vague & Unfocused",
+          "criteria": "Overly verbose or vague, requires significant effort to parse core points, uses ambiguous language, and strays off topic."
+        },
+        "3": {
+          "label": "Average / Clear & Understandable",
+          "criteria": "Adequately communicates ideas and answers the prompt, though structure could be tightened and technical precision improved."
+        },
+        "4": {
+          "label": "Strong / Well-Structured & Concise",
+          "criteria": "Delivers clear, structured explanations with high signal-to-noise ratio, appropriate technical terminology, and logical flow."
+        },
+        "5": {
+          "label": "Excellent / Masterful Technical Articulation",
+          "criteria": "Crisp, executive-level technical communication, perfect pacing, clear hierarchical breakdown, and exemplary precision."
+        }
+      }
+    }
+  },
+  "overall_score_formula": {
+    "formula": "overall_score = 0.35 * technical_depth + 0.25 * problem_solving + 0.20 * practical_experience + 0.20 * communication_clarity",
+    "rounding": "Round to 2 decimal places"
+  },
+  "evidence_rules": {
+    "evidence_first_principle": "Every numerical score awarded when status is ANSWERED must be justified by verbatim quotes extracted directly from the candidate transcript.",
+    "verbatim_requirement": "Quotes in direct_quotes must match character-for-character (case-insensitive with whitespace normalization) with segments from candidate_transcript.",
+    "anti_hallucination_rule": "The evaluator must NEVER invent, extrapolate, or paraphrase candidate words into direct_quotes."
+  },
+  "no_answer_handling": {
+    "status": "NO_ANSWER",
+    "description": "When a candidate remains silent, submits an empty recording, explicitly states I do not know, or provides no substantive attempt at answering.",
+    "scoring_rule": "Do NOT assign a competency score of 1.0. Instead, set all score fields (technical_depth, problem_solving, practical_experience, communication_clarity, overall_score) to null. This prevents confounding absence of response with incompetent response.",
+    "direct_quotes_rule": "Must be an empty array [] since no candidate answer evidence exists.",
+    "gaps_identified": [
+      "Candidate did not provide a substantive response to the question."
+    ],
+    "scoring_rationale": "Candidate provided no answer (silence, pass, or empty submission)."
+  }
+}

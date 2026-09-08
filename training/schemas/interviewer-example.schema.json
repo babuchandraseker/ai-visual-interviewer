@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InterviewerExampleSchema",
+  "description": "Schema for interviewer question generation, adaptive probing, and conversation orchestration training.",
+  "type": "object",
+  "required": [
+    "example_id",
+    "instruction",
+    "current_skill",
+    "current_difficulty",
+    "expected_response",
+    "question_type"
+  ],
+  "properties": {
+    "example_id": {
+      "type": "string",
+      "description": "Unique identifier for the interviewer dialogue training example."
+    },
+    "instruction": {
+      "type": "string",
+      "description": "Directive for the interviewer agent (e.g., probe candidate regarding database indexing trade-offs)."
+    },
+    "context": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Prior interview history or conversational transcript leading to this prompt."
+    },
+    "candidate_context": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Specific candidate profile, resume excerpt, or prior answer mention."
+    },
+    "current_skill": {
+      "type": "string",
+      "description": "Skill domain currently being tested (e.g. Node.js, PostgreSQL, Docker)."
+    },
+    "current_difficulty": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4,
+      "description": "Difficulty level of the question (1-4)."
+    },
+    "expected_response": {
+      "type": "string",
+      "description": "Exemplary interviewer spoken phrasing to deliver to the candidate."
+    },
+    "question_type": {
+      "type": "string",
+      "enum": [
+        "technical",
+        "follow_up",
+        "clarification",
+        "opening",
+        "closing",
+        "scenario"
+      ],
+      "description": "Type of conversational turn."
+    },
+    "expected_length": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "short",
+        "medium",
+        "long",
+        null
+      ],
+      "description": "Target length of the interviewer verbal prompt."
+    }
+  },
+  "additionalProperties": false
+}

@@ -14,9 +14,13 @@ export const env = {
 
   // Audio & AI Engine Service API Keys (Server-side only)
   STT_PROVIDER: (process.env.STT_PROVIDER || '').toLowerCase().trim(),
+  TTS_PROVIDER: (process.env.TTS_PROVIDER || '').toLowerCase().trim(),
+  LLM_PROVIDER: (process.env.LLM_PROVIDER || '').toLowerCase().trim(),
   DEEPGRAM_API_KEY: process.env.DEEPGRAM_API_KEY || '',
   ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY || '',
   OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
+  OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
+  OLLAMA_MODEL: process.env.OLLAMA_MODEL || 'qwen3:8b',
 };
 
 // Production Environment Hardening Assertions

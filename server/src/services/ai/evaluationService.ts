@@ -1,12 +1,12 @@
 import { logger } from '../../utils/logger';
 import { ILLMProvider, EvaluationInput, EvaluationResult } from './types';
-import { OpenAILLMProvider, MockLLMProvider } from './llmProvider';
+import { getLLMProvider } from './llmProvider';
 
 export class EvaluationService {
   private llmProvider: ILLMProvider;
 
   constructor(provider?: ILLMProvider) {
-    this.llmProvider = provider || new OpenAILLMProvider();
+    this.llmProvider = provider || getLLMProvider();
   }
 
   /**

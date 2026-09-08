@@ -148,12 +148,15 @@ export const getSTTProvider = (): ISTTProvider => {
     return new MockSTTProvider();
   }
 
-  // Automatic provider selection based on available API keys
-  if (env.DEEPGRAM_API_KEY && env.DEEPGRAM_API_KEY.trim() !== '') {
-    return new DeepgramSTTProvider(env.DEEPGRAM_API_KEY);
-  }
-  if (env.OPENAI_API_KEY && env.OPENAI_API_KEY.trim() !== '') {
-    return new OpenAIWhisperSTTProvider(env.OPENAI_API_KEY);
+  // Automatic provider selection in non-test environments
+  if (env.NODE_ENV !== 'test') {
+    if (env.DEEPGRAM_API_KEY && env.DEEPGRAM_API_KEY.trim() !== '') {
+      return new DeepgramSTTProvider(env.DEEPGRAM_API_KEY);
+    }
+    if (env.OPENAI_API_KEY && env.OPENAI_API_KEY.trim() !== '') {
+      return new OpenAIWhisperSTTProvider(env.OPENAI_API_KEY);
+    }
   }
   return new MockSTTProvider();
 };
+

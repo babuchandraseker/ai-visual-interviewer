@@ -67,8 +67,10 @@ describe('Audio Engine API Endpoints (/api/v1/audio)', () => {
 
     it('should return 400 when STT_PROVIDER=deepgram is configured without API key', async () => {
       const { env } = require('../src/config/env');
-      const origVal = env.STT_PROVIDER;
+      const origProvider = env.STT_PROVIDER;
+      const origKey = env.DEEPGRAM_API_KEY;
       env.STT_PROVIDER = 'deepgram';
+      env.DEEPGRAM_API_KEY = '';
 
       const mockAudioBase64 = Buffer.from('test-audio').toString('base64');
       const response = await request(app)
@@ -81,7 +83,8 @@ describe('Audio Engine API Endpoints (/api/v1/audio)', () => {
       expect(response.status).toBe(400);
       expect(response.body.error.message).toContain('DEEPGRAM_API_KEY');
 
-      env.STT_PROVIDER = origVal;
+      env.STT_PROVIDER = origProvider;
+      env.DEEPGRAM_API_KEY = origKey;
     });
   });
 

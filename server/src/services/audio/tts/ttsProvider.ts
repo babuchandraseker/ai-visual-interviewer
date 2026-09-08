@@ -78,8 +78,26 @@ export class ElevenLabsTTSProvider implements ITTSProvider {
 }
 
 export const getTTSProvider = (): ITTSProvider => {
-  if (env.ELEVENLABS_API_KEY && env.ELEVENLABS_API_KEY.trim() !== '') {
+  const providerReq = env.TTS_PROVIDER;
+
+  if (providerReq === 'elevenlabs' || providerReq === 'real') {
+    if (!env.ELEVENLABS_API_KEY || env.ELEVENLABS_API_KEY.trim() === '') {
+      throw ApiError.badRequest('Real TTS Provider (ElevenLabs) is requested but ELEVENLABS_API_KEY is not configured in server environment.');
+    }
     return new ElevenLabsTTSProvider(env.ELEVENLABS_API_KEY);
+  }
+
+  if (providerReq === 'mock') {
+    return new MockTTSProvider();
+  }
+
+  // Automatic provider selection in non-test environments
+  if (env.NODE_ENV !== 'test') {
+    if (env.ELEVENLABS_API_KEY && env.ELEVENLABS_API_KEY.trim() !== '') {
+      return new ElevenLabsTTSProvider(env.ELEVENLABS_API_KEY);
+    }
   }
   return new MockTTSProvider();
 };
+
+

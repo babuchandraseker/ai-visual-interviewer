@@ -13,7 +13,11 @@ export class AudioPlaybackEngine {
     this.events = events;
   }
 
-  public async playBase64(base64Data: string, mimeType: string = 'audio/mp3'): Promise<void> {
+  public async playBase64(
+    base64Data: string,
+    mimeType: string = 'audio/mp3',
+    onEndedCallback?: () => void
+  ): Promise<void> {
     this.stop(); // Stop any currently playing audio to prevent overlap
 
     try {
@@ -30,6 +34,7 @@ export class AudioPlaybackEngine {
         this.isPlaying = false;
         this.currentAudio = null;
         if (this.events.onEnded) this.events.onEnded();
+        if (onEndedCallback) onEndedCallback();
       };
 
       audio.onerror = (e) => {
@@ -38,6 +43,7 @@ export class AudioPlaybackEngine {
         if (this.events.onError) {
           this.events.onError(new Error('Audio playback failed'));
         }
+        if (onEndedCallback) onEndedCallback();
       };
 
       await audio.play();
@@ -50,11 +56,13 @@ export class AudioPlaybackEngine {
         err.name === 'NotAllowedError' ||
         (err.message && err.message.includes('interrupted by a call to pause'))
       ) {
+        if (onEndedCallback) onEndedCallback();
         return;
       }
       if (this.events.onError) {
         this.events.onError(new Error(err.message || 'Failed to start audio playback'));
       }
+      if (onEndedCallback) onEndedCallback();
     }
   }
 

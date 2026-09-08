@@ -11,7 +11,7 @@ export interface UseAudioEngineReturn {
   errorMessage: string | null;
   startListening: () => Promise<void>;
   stopListening: () => void;
-  speakText: (text: string) => Promise<void>;
+  speakText: (text: string, onComplete?: () => void) => Promise<void>;
   stopSpeaking: () => void;
   resetTranscript: () => void;
 }
@@ -149,8 +149,11 @@ export const useAudioEngine = (configOptions: Partial<AudioConfig> = {}): UseAud
     }
   }, [stopWebSpeech]);
 
-  const speakText = useCallback(async (text: string) => {
-    if (!text || text.trim() === '') return;
+  const speakText = useCallback(async (text: string, onComplete?: () => void) => {
+    if (!text || text.trim() === '') {
+      if (onComplete) onComplete();
+      return;
+    }
 
     stopListening(); // Ensure microphone is off while AI speaks
     setStatus('INITIALIZING');
@@ -170,10 +173,15 @@ export const useAudioEngine = (configOptions: Partial<AudioConfig> = {}): UseAud
         });
       }
 
-      await playbackEngineRef.current.playBase64(ttsResponse.audioBase64, ttsResponse.mimeType);
+      await playbackEngineRef.current.playBase64(
+        ttsResponse.audioBase64,
+        ttsResponse.mimeType,
+        onComplete
+      );
     } catch (err: any) {
       setStatus('ERROR');
       setErrorMessage(err.message || 'Speech synthesis failed');
+      if (onComplete) onComplete();
     }
   }, [stopListening]);
 

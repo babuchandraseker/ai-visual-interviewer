@@ -40,144 +40,150 @@ export const useInterviewFSM = (
   const orchestratorRef = useRef(new DeterministicQuestionOrchestrator());
   const timerRef = useRef<InterviewTimer | null>(null);
   const isEvaluatingRef = useRef(false);
+  const isSelectingQuestionRef = useRef(false);
+
+  // Dispatch FSM event helper with synchronous ref update and single action execution
+  const dispatch = useCallback((event: InterviewEvent) => {
+    const prev = fsmRef.current;
+    const now = new Date().toISOString().substring(11, 23);
+    console.log(`[FSM Dispatch ${now}] event: ${event.type} | current state: ${prev.state}`);
+
+    const result = transition(prev.state, event, prev.context);
+
+    // Update synchronously in ref so any immediate downstream calls see updated state
+    fsmRef.current = {
+      state: result.nextState,
+      context: result.nextContext,
+    };
+
+    // Update React state for UI rendering
+    setFsm(fsmRef.current);
+
+    // Execute side-effect action ONCE deterministically
+    if (result.action) {
+      handleAction(result.action, result.nextContext);
+    }
+  }, []);
 
   // Handle FSM actions deterministically
-  const handleAction = useCallback(
-    (action: any, currentCtx: InterviewContext) => {
-      switch (action.type) {
-        case 'PLAY_INTRO': {
-          audioEngine.speakText(action.text);
-          break;
+  const handleAction = (action: any, currentCtx: InterviewContext) => {
+    switch (action.type) {
+      case 'PLAY_INTRO': {
+        audioEngine.speakText(action.text, () => {
+          if (fsmRef.current.state === 'INTRO') {
+            dispatch({ type: 'INTRO_DELIVERED' });
+          }
+        });
+        break;
+      }
+      case 'SELECT_NEXT_QUESTION': {
+        if (fsmRef.current.state !== 'QUESTION_SELECT' || isSelectingQuestionRef.current) {
+          return;
         }
-        case 'SELECT_NEXT_QUESTION': {
+        isSelectingQuestionRef.current = true;
+        try {
           audioEngine.resetTranscript();
           const nextQ = orchestratorRef.current.getNextQuestion(currentCtx);
           if (nextQ) {
-            dispatch({ type: 'QUESTION_SELECTED', question: nextQ });
+            if (fsmRef.current.state === 'QUESTION_SELECT') {
+              dispatch({ type: 'QUESTION_SELECTED', question: nextQ });
+            }
           } else {
-            dispatch({ type: 'ADAPTATION_COMPLETE' });
-          }
-          break;
-        }
-        case 'PLAY_QUESTION': {
-          audioEngine.resetTranscript();
-          audioEngine.speakText(action.question.text);
-          break;
-        }
-        case 'START_RECORDING_ANSWER': {
-          audioEngine.resetTranscript();
-          audioEngine.startListening();
-          break;
-        }
-        case 'PROCESS_EVALUATION_PLACEHOLDER': {
-          if (isEvaluatingRef.current) return;
-          isEvaluatingRef.current = true;
-
-          const rawTranscript = (action.transcript || '').trim();
-          const durationSec = Math.round((audioEngine.transcript?.durationMs || 0) / 1000);
-
-          evaluateSessionTranscript(currentCtx.sessionId, {
-            skillTag: currentCtx.currentQuestion?.skill || 'General',
-            difficultyLevel: currentCtx.currentQuestion?.difficulty || 2,
-            questionText: currentCtx.currentQuestion?.text || '',
-            rawTranscript,
-            durationSeconds: durationSec,
-          })
-            .then((res) => {
-              // Ensure we only dispatch if still in EVALUATING state
-              if (fsmRef.current.state === 'EVALUATING') {
-                dispatch({
-                  type: 'EVALUATION_READY',
-                  result: {
-                    questionId: action.questionId,
-                    completed: true,
-                    evaluation: res.evaluation,
-                    adaptation: res.adaptation,
-                  },
-                });
-              }
-            })
-            .catch(() => {
-              // Fallback to allow FSM progression without getting stuck
-              if (fsmRef.current.state === 'EVALUATING') {
-                dispatch({
-                  type: 'EVALUATION_READY',
-                  result: { questionId: action.questionId, completed: true },
-                });
-              }
-            })
-            .finally(() => {
-              isEvaluatingRef.current = false;
-            });
-          break;
-        }
-        case 'EXECUTE_ADAPTATION': {
-          setTimeout(() => {
-            if (fsmRef.current.state === 'ADAPTING') {
+            if (fsmRef.current.state === 'QUESTION_SELECT') {
               dispatch({ type: 'ADAPTATION_COMPLETE' });
             }
-          }, 200);
-          break;
-        }
-        case 'PLAY_WRAPUP': {
-          audioEngine.stopListening();
-          audioEngine.speakText(action.text);
-          break;
-        }
-        case 'CLEANUP_AND_FINALIZE': {
-          if (timerRef.current) {
-            timerRef.current.stop();
           }
-          audioEngine.stopListening();
-          audioEngine.stopSpeaking();
-          break;
+        } finally {
+          isSelectingQuestionRef.current = false;
         }
+        break;
       }
-    },
-    [audioEngine]
-  );
+      case 'PLAY_QUESTION': {
+        audioEngine.resetTranscript();
+        audioEngine.speakText(action.question.text, () => {
+          if (fsmRef.current.state === 'ASKING') {
+            dispatch({ type: 'QUESTION_DELIVERED' });
+          }
+        });
+        break;
+      }
+      case 'START_RECORDING_ANSWER': {
+        audioEngine.resetTranscript();
+        audioEngine.startListening();
+        break;
+      }
+      case 'PROCESS_EVALUATION_PLACEHOLDER': {
+        if (fsmRef.current.state !== 'EVALUATING' || isEvaluatingRef.current) return;
+        isEvaluatingRef.current = true;
 
-  // Dispatch FSM event helper with atomic state updates
-  const dispatch = useCallback(
-    (event: InterviewEvent) => {
-      setFsm((prev) => {
-        const result = transition(prev.state, event, prev.context);
+        const rawTranscript = (action.transcript || '').trim();
+        const durationSec = Math.round((audioEngine.transcript?.durationMs || 0) / 1000);
 
-        // Execute side-effect action asynchronously outside state updater
-        if (result.action) {
-          const action = result.action;
-          const nextCtx = result.nextContext;
-          queueMicrotask(() => {
-            handleAction(action, nextCtx);
+        evaluateSessionTranscript(currentCtx.sessionId, {
+          skillTag: currentCtx.currentQuestion?.skill || 'General',
+          difficultyLevel: currentCtx.currentQuestion?.difficulty || 2,
+          questionText: currentCtx.currentQuestion?.text || '',
+          rawTranscript,
+          durationSeconds: durationSec,
+        })
+          .then((res) => {
+            if (fsmRef.current.state === 'EVALUATING') {
+              dispatch({
+                type: 'EVALUATION_READY',
+                result: {
+                  questionId: action.questionId,
+                  completed: true,
+                  evaluation: res.evaluation,
+                  adaptation: res.adaptation,
+                },
+              });
+            }
+          })
+          .catch(() => {
+            if (fsmRef.current.state === 'EVALUATING') {
+              dispatch({
+                type: 'EVALUATION_READY',
+                result: { questionId: action.questionId, completed: true },
+              });
+            }
+          })
+          .finally(() => {
+            isEvaluatingRef.current = false;
           });
+        break;
+      }
+      case 'EXECUTE_ADAPTATION': {
+        if (fsmRef.current.state === 'ADAPTING') {
+          dispatch({ type: 'ADAPTATION_COMPLETE' });
         }
+        break;
+      }
+      case 'PLAY_WRAPUP': {
+        audioEngine.stopListening();
+        audioEngine.speakText(action.text, () => {
+          if (fsmRef.current.state === 'WRAPUP') {
+            dispatch({ type: 'INTRO_DELIVERED' });
+          }
+        });
+        break;
+      }
+      case 'CLEANUP_AND_FINALIZE': {
+        if (timerRef.current) {
+          timerRef.current.stop();
+        }
+        audioEngine.stopListening();
+        audioEngine.stopSpeaking();
+        break;
+      }
+    }
+  };
 
-        return {
-          state: result.nextState,
-          context: result.nextContext,
-        };
-      });
-    },
-    [handleAction]
-  );
-
-  // Monitor Audio Engine State Transitions to drive FSM
+  // Monitor Audio Engine State Transitions ONLY for Candidate Answer Recording
   useEffect(() => {
     const currentState = fsm.state;
     const currentAudioStatus = audioEngine.status;
 
-    if (currentState === 'INTRO' && currentAudioStatus === 'READY' && fsm.context.startedAt) {
-      // Intro TTS finished -> advance to QUESTION_SELECT
-      dispatch({ type: 'INTRO_DELIVERED' });
-    }
-
-    if (currentState === 'ASKING' && currentAudioStatus === 'READY' && fsm.context.currentQuestion) {
-      // Question TTS finished -> advance to LISTENING
-      dispatch({ type: 'QUESTION_DELIVERED' });
-    }
-
     if (currentState === 'LISTENING' && currentAudioStatus === 'TRANSCRIPT_READY') {
-      // Candidate answer captured -> advance to EVALUATING
       const rawText = (audioEngine.transcript?.transcript || '').trim();
       const durMs = audioEngine.transcript?.durationMs || 0;
       dispatch({
@@ -186,17 +192,10 @@ export const useInterviewFSM = (
         durationMs: durMs,
       });
     }
-
-    if (currentState === 'WRAPUP' && currentAudioStatus === 'READY') {
-      // Wrapup TTS finished -> advance to COMPLETED
-      dispatch({ type: 'INTRO_DELIVERED' });
-    }
   }, [
     fsm.state,
     audioEngine.status,
     audioEngine.transcript,
-    fsm.context.startedAt,
-    fsm.context.currentQuestion,
     dispatch,
   ]);
 
